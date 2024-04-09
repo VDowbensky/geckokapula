@@ -598,6 +598,8 @@ struct modstate {
 
 	// Phase accumulator for I/Q to FM conversion
 	uint32_t pha;
+	// Previous value of frequency modulation
+	int32_t fm_prev;
 
 	// Phase of the first oscillator in SSB modulation
 	float bfo_i, bfo_q;
@@ -835,12 +837,18 @@ static void mod_iq_to_fm(struct modstate *m, iq_float_t *in, fm_out_t *out, unsi
 {
 	// Phase accumulator change per sample per FM quantization step.
 	// 2**32 * (38.4 MHz / (2**18)) / 24 kHz
-	const int32_t phdev = 26214400;
+	// Multiplied by 2 because
+	// filtering of FM modulation doubles the values.
+	const int32_t phdev = 26214400 *2;
 
-	// Maximum frequency deviation in steps
-	const int32_t fm_max = 21;
+	// Maximum frequency deviation in steps,
+	// divided by 2 because
+	// filtering of FM modulation doubles the values.
+	const int32_t fm_max = 12 /2;
 
 	uint32_t pha = m->pha;
+
+	int32_t fm_prev = m->fm_prev;
 
 	unsigned i;
 	for (i = 0; i < len; i++) {
@@ -852,8 +860,22 @@ static void mod_iq_to_fm(struct modstate *m, iq_float_t *in, fm_out_t *out, unsi
 		// Phase difference from current phase accumulator
 		int32_t phdiff = (int32_t)(ph - pha);
 
-		// Quantize to FM modulation steps
-		int32_t fm = phdiff / phdev;
+		// Quantize to FM modulation steps.
+		// I think that "ideally", we would divide phdiff by phdev
+		// and round the result to find the frequency that gets us
+		// closest to the target phase during a sample.
+		// Dividing by a slightly higher value, however,
+		// seems to make the loop behave more nicely.
+		// Exact value is not critical since it is a part of a
+		// feedback loop anyway, so we can optimize it a bit by
+		// using a power of two, so that division can be
+		// implemented as a bit shift.
+		// Right shift of negative numbers is implementation
+		// defined so handle negative numbers separately
+		// to avoid doing that and to also round it correctly.
+		int32_t fm = (phdiff >= 0)
+			?  (( phdiff + (1<<26)) >> 27)
+			: -((-phdiff + (1<<26)) >> 27);
 
 		// Clamp to maximum deviation
 		if (fm < -fm_max)
@@ -861,15 +883,19 @@ static void mod_iq_to_fm(struct modstate *m, iq_float_t *in, fm_out_t *out, unsi
 		if (fm >  fm_max)
 			fm =  fm_max;
 
-		out[i] = fm + fm_offset;
+		// Filter FM modulation to reduce high frequency noise
+		int32_t fm_filtered = fm + fm_prev;
+		out[i] = fm_filtered + fm_offset;
 
 		// Output phase does not exactly follow I/Q phase
 		// due to frequency clamping and quantization.
 		// Make the phase accumulator follow the actual output phase.
 		pha += fm * phdev;
+		fm_prev = fm;
 	}
 
 	m->pha = pha;
+	m->fm_prev = fm_prev;
 }
 
 // Center frequency for SSB modulation in FM quantization steps
