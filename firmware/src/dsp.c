@@ -549,34 +549,34 @@ int dsp_fast_rx(iq_in_t *in, int in_len, audio_out_t *out, int out_len)
 /* Biquad filters for audio preprocessing.
  *
  * Sample rate: 24000 Hz
- * First stage: Lowpass, 2200 Hz, Q=1.5, Gain=0 dB
+ * First stage: Lowpass, 2000 Hz, Q=2, Gain=0 dB
  * Coefficients from https://arachnoid.com/BiQuadDesigner/
  *
- * Second and third stages: Allpass, 700 Hz, Q=2, Gain=0
+ * Second and third stages: Allpass, 500 Hz, Q=2, Gain=0
  * https://www.earlevel.com/main/2021/09/02/biquad-calculator-v3/
  * Note that this calculator swaps naming of a and b.
  * Not sure if this allpass is a good idea but let's give it a try.
  */
 static const struct biquad_coeff biquads_audio[BIQUADS_AUDIO_N] = {
 {
-	.a1 = -1.41961519f,
-	.a2 =  0.69269704f,
-	.b0 =  0.06827046f,
-	.b1 =  0.13654093f,
-	.b2 =  0.06827046f
+	.a1 = -1.53960072f,
+	.a2 =  0.77777778f,
+	.b0 =  0.05954426f,
+	.b1 =  0.11908853f,
+	.b2 =  0.05954426f
 },
 {
-	.a1 = -1.8808216831800728f,
-	.a2 =  0.9128525763882213,
-	.b0 =  0.9128525763882213f,
-	.b1 =  -1.8808216831800728f,
+	.a1 = -1.9202296564369383f,
+	.a2 =  0.9367992424471727f,
+	.b0 =  0.9367992424471727f,
+	.b1 = -1.9202296564369383f,
 	.b2 =  1.0f
 },
 {
-	.a1 = -1.8808216831800728f,
-	.a2 =  0.9128525763882213,
-	.b0 =  0.9128525763882213f,
-	.b1 =  -1.8808216831800728f,
+	.a1 = -1.9202296564369383f,
+	.a2 =  0.9367992424471727f,
+	.b0 =  0.9367992424471727f,
+	.b1 = -1.9202296564369383f,
 	.b2 =  1.0f
 },
 };
